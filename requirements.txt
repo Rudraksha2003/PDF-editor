@@ -1,0 +1,20 @@
+fastapi
+uvicorn
+python-multipart
+pydantic
+pypdf
+cryptography
+reportlab
+img2pdf
+pikepdf
+pdf2image
+pdfplumber
+pytesseract
+pdf2docx
+weasyprint
+endesive
+Pillow
+
+# Compress uses Ghostscript by default when installed (gs / gswin64c / gswin32c).
+# Install separately: https://ghostscript.com/releases/gsdnld.html (or winget install ArtifexSoftware.GhostScript)
+# Without Ghostscript, compress falls back to pikepdf/image path.

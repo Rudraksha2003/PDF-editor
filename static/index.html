@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF Editor — Merge, Split, Convert &amp; More</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <div class="app" data-view="tools" id="appRoot">
+    <aside class="sidebar" id="sidebar" aria-label="Tools navigation">
+      <div class="sidebar-header">
+        <a href="/" class="logo">
+          <span class="logo-icon" aria-hidden="true">◇</span>
+          <span class="logo-text">PDF Editor</span>
+        </a>
+      </div>
+      <div class="sidebar-search">
+        <span class="sidebar-search-icon" aria-hidden="true">⌕</span>
+        <input type="search" class="sidebar-search-input" id="toolSearch" placeholder="Search tools..." aria-label="Search tools" />
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-category" data-category="Organize">
+          <button type="button" class="nav-category-btn" aria-expanded="true">Organize</button>
+          <div class="nav-tools">
+            <button type="button" class="nav-tool" data-tool="merge"><span class="nav-tool-icon">⊕</span><span class="nav-tool-name">Merge</span></button>
+            <button type="button" class="nav-tool" data-tool="split"><span class="nav-tool-icon">⊞</span><span class="nav-tool-name">Split PDF</span></button>
+            <button type="button" class="nav-tool" data-tool="split-by-range"><span class="nav-tool-icon">⊞</span><span class="nav-tool-name">Split by range</span></button>
+            <button type="button" class="nav-tool" data-tool="extract"><span class="nav-tool-icon">⎌</span><span class="nav-tool-name">Extract pages</span></button>
+            <button type="button" class="nav-tool" data-tool="delete"><span class="nav-tool-icon">✕</span><span class="nav-tool-name">Delete pages</span></button>
+            <button type="button" class="nav-tool" data-tool="reorder"><span class="nav-tool-icon">⇅</span><span class="nav-tool-name">Reorder pages</span></button>
+            <button type="button" class="nav-tool" data-tool="compare"><span class="nav-tool-icon">≡</span><span class="nav-tool-name">Compare PDFs</span></button>
+          </div>
+        </div>
+        <div class="nav-category" data-category="Optimize">
+          <button type="button" class="nav-category-btn" aria-expanded="true">Optimize</button>
+          <div class="nav-tools">
+            <button type="button" class="nav-tool" data-tool="compress"><span class="nav-tool-icon">↓</span><span class="nav-tool-name">Compress</span></button>
+            <button type="button" class="nav-tool" data-tool="repair"><span class="nav-tool-icon">🔧</span><span class="nav-tool-name">Repair</span></button>
+            <button type="button" class="nav-tool" data-tool="ocr"><span class="nav-tool-icon">📝</span><span class="nav-tool-name">OCR</span></button>
+          </div>
+        </div>
+        <div class="nav-category" data-category="Convert">
+          <button type="button" class="nav-category-btn" aria-expanded="true">Convert</button>
+          <div class="nav-tools">
+            <button type="button" class="nav-tool" data-tool="img-to-pdf"><span class="nav-tool-icon">🖼</span><span class="nav-tool-name">Images → PDF</span></button>
+            <button type="button" class="nav-tool" data-tool="pdf-to-img"><span class="nav-tool-icon">📷</span><span class="nav-tool-name">PDF → Images</span></button>
+            <button type="button" class="nav-tool" data-tool="pdf-to-pdfa"><span class="nav-tool-icon">📄</span><span class="nav-tool-name">PDF → PDF/A</span></button>
+            <button type="button" class="nav-tool" data-tool="pdf-to-text"><span class="nav-tool-icon">T</span><span class="nav-tool-name">PDF → Text</span></button>
+            <button type="button" class="nav-tool" data-tool="html-to-pdf"><span class="nav-tool-icon">H</span><span class="nav-tool-name">HTML → PDF</span></button>
+            <button type="button" class="nav-tool" data-tool="office-to-pdf"><span class="nav-tool-icon">📊</span><span class="nav-tool-name">Office → PDF</span></button>
+            <button type="button" class="nav-tool" data-tool="pdf-to-office"><span class="nav-tool-icon">📋</span><span class="nav-tool-name">PDF → Office</span></button>
+          </div>
+        </div>
+        <div class="nav-category" data-category="Edit">
+          <button type="button" class="nav-category-btn" aria-expanded="true">Edit</button>
+          <div class="nav-tools">
+            <button type="button" class="nav-tool" data-tool="rotate"><span class="nav-tool-icon">↻</span><span class="nav-tool-name">Rotate</span></button>
+            <button type="button" class="nav-tool" data-tool="crop"><span class="nav-tool-icon">▭</span><span class="nav-tool-name">Crop</span></button>
+            <button type="button" class="nav-tool" data-tool="page-numbers"><span class="nav-tool-icon">#</span><span class="nav-tool-name">Page numbers</span></button>
+            <button type="button" class="nav-tool" data-tool="watermark"><span class="nav-tool-icon">〄</span><span class="nav-tool-name">Watermark</span></button>
+            <button type="button" class="nav-tool" data-tool="stamp"><span class="nav-tool-icon">🖼</span><span class="nav-tool-name">Stamp</span></button>
+            <button type="button" class="nav-tool" data-tool="flatten"><span class="nav-tool-icon">⊡</span><span class="nav-tool-name">Flatten</span></button>
+            <button type="button" class="nav-tool" data-tool="remove-blanks"><span class="nav-tool-icon">∅</span><span class="nav-tool-name">Remove blanks</span></button>
+            <button type="button" class="nav-tool" data-tool="extract-images"><span class="nav-tool-icon">🖼</span><span class="nav-tool-name">Extract images</span></button>
+          </div>
+        </div>
+        <div class="nav-category" data-category="Security">
+          <button type="button" class="nav-category-btn" aria-expanded="true">Security</button>
+          <div class="nav-tools">
+            <button type="button" class="nav-tool" data-tool="protect"><span class="nav-tool-icon">🔒</span><span class="nav-tool-name">Protect</span></button>
+            <button type="button" class="nav-tool" data-tool="unlock"><span class="nav-tool-icon">🔓</span><span class="nav-tool-name">Unlock</span></button>
+            <button type="button" class="nav-tool" data-tool="redact"><span class="nav-tool-icon">▭</span><span class="nav-tool-name">Redact</span></button>
+            <button type="button" class="nav-tool" data-tool="sign"><span class="nav-tool-icon">✍</span><span class="nav-tool-name">Sign PDF</span></button>
+            <button type="button" class="nav-tool" data-tool="sanitize"><span class="nav-tool-icon">🧹</span><span class="nav-tool-name">Sanitize</span></button>
+          </div>
+        </div>
+        <div class="nav-category" data-category="Analyze">
+          <button type="button" class="nav-category-btn" aria-expanded="true">Analyze</button>
+          <div class="nav-tools">
+            <button type="button" class="nav-tool" data-tool="document-info"><span class="nav-tool-icon">ℹ</span><span class="nav-tool-name">Document info</span></button>
+            <button type="button" class="nav-tool" data-tool="form-fields"><span class="nav-tool-icon">📋</span><span class="nav-tool-name">Form fields</span></button>
+            <button type="button" class="nav-tool" data-tool="validate-signature"><span class="nav-tool-icon">✓</span><span class="nav-tool-name">Validate signature</span></button>
+          </div>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="/docs" target="_blank" rel="noopener noreferrer" class="sidebar-link"><span class="sidebar-link-icon" aria-hidden="true">📖</span><span class="sidebar-link-name">Docs</span></a>
+      </div>
+    </aside>
+
+    <div class="app-main">
+      <header class="main-topbar">
+        <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Open tools menu" aria-expanded="false">
+          <span class="sidebar-toggle-icon" aria-hidden="true">☰</span>
+        </button>
+        <div class="view-tabs" role="tablist" aria-label="View mode">
+          <button type="button" class="view-tab active" data-view="tools" role="tab" aria-selected="true">Tools</button>
+          <button type="button" class="view-tab" data-view="reader" role="tab" aria-selected="false">Reader</button>
+          <button type="button" class="view-tab" data-view="preview" role="tab" aria-selected="false">Preview</button>
+        </div>
+        <div class="main-topbar-actions">
+          <button type="button" class="theme-toggle theme-toggle-top" id="themeToggle" title="Toggle theme" aria-label="Toggle dark/light theme">
+            <span class="theme-icon theme-icon-sun" aria-hidden="true" title="Switch to light mode">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+            </span>
+            <span class="theme-icon theme-icon-moon" aria-hidden="true" title="Switch to dark mode">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </span>
+          </button>
+        </div>
+      </header>
+      <div class="main-content">
+        <section class="home-view" id="homeView">
+          <div class="home-card" id="homeCard">
+            <h1 class="home-title"><span class="home-title-brand">PDF</span> Editor</h1>
+            <p class="home-subtitle">Merge, split, compress, convert — all in the browser</p>
+            <p class="home-instruction">Choose a tool from the sidebar to get started.</p>
+            <p class="home-instruction-mobile">On mobile, tap the menu button above to open tools.</p>
+          </div>
+        </section>
+
+        <section class="workspace hidden" id="workspace" aria-hidden="true">
+          <div class="workspace-header">
+            <button type="button" class="back-btn" id="backBtn" aria-label="Back">← Back</button>
+            <h2 class="workspace-title" id="workspaceTitle">Tool</h2>
+          </div>
+
+          <div class="workspace-body">
+            <div class="flatten-options-block hidden" id="flattenOptionsBlock" aria-label="Flatten options">
+              <div class="options-section-title"><span class="options-section-title-text">Flatten options</span></div>
+              <div class="option-group option-group-checkbox">
+                <label class="option-checkbox-label">
+                  <input type="checkbox" id="opt-flatten_only_forms" name="flatten_only_forms" value="true" />
+                  <span>Flatten only forms</span>
+                </label>
+                <p class="option-note">Only flatten form fields, leaving links and other annotations intact.</p>
+              </div>
+            </div>
+            <div class="file-viz-instruction hidden" id="fileVizInstruction" role="status">
+              To change the order, drag and drop the files as you want.
+            </div>
+            <div class="file-viz-row">
+              <div class="file-cards-wrap">
+                <div class="file-cards" id="fileCards" aria-label="Selected files"></div>
+                <div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-label="Drop files or click to browse">
+                  <input type="file" id="fileInput" class="file-input" accept=".pdf,application/pdf" multiple />
+                  <div class="drop-zone-content">
+                    <span class="drop-icon">📄</span>
+                    <p class="drop-text" id="dropText">Drop PDFs here or click to browse</p>
+                    <p class="drop-hint" id="dropHint"></p>
+                  </div>
+                </div>
+              </div>
+              <div class="file-viz-actions hidden" id="fileVizActions">
+                <button type="button" class="btn-add-more" id="addMoreBtn" title="Add more files" aria-label="Add more files">
+                  <span class="btn-add-more-icon">+</span>
+                  <span class="btn-add-more-badge" id="addMoreBadge">0</span>
+                </button>
+                <button type="button" class="btn-sort" id="sortBtnAZ" title="Sort A–Z" aria-label="Sort A–Z"><span class="btn-sort-icon">A–Z</span></button>
+                <button type="button" class="btn-sort" id="sortBtnZA" title="Sort Z–A" aria-label="Sort Z–A"><span class="btn-sort-icon">Z–A</span></button>
+              </div>
+            </div>
+
+            <div class="tool-options hidden" id="toolOptions"></div>
+
+            <div class="action-row">
+              <button type="button" class="btn btn-primary" id="submitBtn" disabled>Process</button>
+            </div>
+          </div>
+
+          <div class="job-panel hidden" id="jobPanel">
+            <div class="job-status" id="jobStatus"></div>
+            <div class="job-panel-actions">
+              <a class="btn btn-success hidden" id="downloadBtn" href="#" download>Download result</a>
+              <button type="button" class="btn btn-primary hidden" id="openCompareViewBtn">Open compare view</button>
+              <button type="button" class="btn btn-secondary hidden" id="uploadNewFileBtn">Upload new file</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="compare-view hidden" id="compareView" aria-hidden="true">
+          <div class="compare-view-header">
+            <div class="compare-view-header-left">
+              <button type="button" class="back-btn" id="compareViewBackBtn" aria-label="Back">← Back</button>
+              <h2 class="compare-view-title">Compare PDFs</h2>
+            </div>
+            <div class="compare-view-header-center">
+              <div class="compare-view-zoom">
+                <button type="button" class="compare-zoom-btn" id="compareZoomOut" aria-label="Zoom out" title="Zoom out">−</button>
+                <span class="compare-zoom-label" id="compareZoomLabel">100%</span>
+                <button type="button" class="compare-zoom-btn" id="compareZoomIn" aria-label="Zoom in" title="Zoom in">+</button>
+              </div>
+              <label class="compare-view-sync">
+                <input type="checkbox" id="compareScrollSync" checked aria-label="Sync scroll" />
+                <span>Scroll sync</span>
+              </label>
+            </div>
+            <div class="compare-view-header-right" aria-hidden="true"></div>
+          </div>
+          <div class="compare-view-body">
+            <div class="compare-panes">
+              <div class="compare-pane" id="comparePaneLeft">
+                <div class="compare-pane-label" id="compareLabelLeft">Left PDF</div>
+                <div class="compare-pane-canvas-wrap" id="compareCanvasWrapLeft"></div>
+              </div>
+              <div class="compare-pane" id="comparePaneRight">
+                <div class="compare-pane-label" id="compareLabelRight">Right PDF</div>
+                <div class="compare-pane-canvas-wrap" id="compareCanvasWrapRight"></div>
+              </div>
+            </div>
+            <aside class="compare-report-panel">
+              <h3 class="compare-report-title">Change report <span id="compareReportCount">0</span></h3>
+              <input type="search" class="compare-report-search" id="compareReportSearch" placeholder="Search text..." aria-label="Search in changes" />
+              <div class="compare-report-list" id="compareReportList"></div>
+              <a class="btn btn-success compare-download-report" id="compareDownloadReportBtn" href="#" download style="display: none;">Download report</a>
+            </aside>
+          </div>
+        </section>
+
+        <section class="preview-view hidden" id="previewView" aria-hidden="true">
+          <div class="preview-view-empty hidden" id="previewViewEmpty">
+            <p class="preview-view-empty-text">Complete a task to see the result here. Use a tool under Tools, then open Preview after the job finishes.</p>
+          </div>
+          <iframe class="preview-view-iframe hidden" id="previewViewIframe" title="Preview file"></iframe>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
