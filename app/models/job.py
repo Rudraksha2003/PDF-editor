@@ -37,6 +37,9 @@ class JobType(str, Enum):
     ADD_STAMP = "add_stamp"
     FLATTEN = "flatten"
     REMOVE_BLANKS = "remove_blanks"
+    EDIT_PDF_EXTRACT = "edit_pdf_extract"
+    EDIT_PDF_REPLACE = "edit_pdf_replace"
+    EDIT_PDF_PREPARE = "edit_pdf_prepare"
     # Security
     PROTECT = "protect"
     UNLOCK = "unlock"

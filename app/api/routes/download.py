@@ -13,6 +13,7 @@ MEDIA_TYPES = {
     ".pdf": "application/pdf",
     ".zip": "application/zip",
     ".txt": "text/plain",
+    ".json": "application/json",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",

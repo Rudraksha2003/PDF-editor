@@ -10,6 +10,7 @@ pikepdf
 pdf2image
 pdfplumber
 pytesseract
+pymupdf
 pdf2docx
 weasyprint
 endesive

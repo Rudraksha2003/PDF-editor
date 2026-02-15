@@ -2,7 +2,11 @@ import re
 
 from pypdf import PdfReader
 
-ALLOWED_PDF_CONTENT_TYPES = ("application/pdf",)
+ALLOWED_PDF_CONTENT_TYPES = (
+    "application/pdf",
+    "application/octet-stream",
+    "application/x-pdf",
+)
 ALLOWED_PDF_EXTENSIONS = (".pdf",)
 ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 ALLOWED_IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
@@ -21,12 +25,16 @@ def _check_file_type(upload_file, allowed_content_types, allowed_extensions, exp
     """Raise ValueError if content_type or filename extension is not allowed."""
     ct = (upload_file.content_type or "").strip().lower()
     fn = (upload_file.filename or "").lower()
-    if ct and ct not in allowed_content_types:
+    has_valid_ext = fn and any(fn.endswith(ext) for ext in allowed_extensions)
+    has_valid_ct = ct and ct in allowed_content_types
+    # Accept if either content-type or extension indicates the right type (e.g. Swagger may send wrong ct)
+    if has_valid_ct or has_valid_ext:
+        return
+    if ct and not has_valid_ext:
         raise ValueError(f"Invalid file type. Expected {expected_label}.")
-    if fn and not any(fn.endswith(ext) for ext in allowed_extensions):
+    if fn:
         raise ValueError(f"Invalid file. Expected {expected_label} (e.g. {', '.join(allowed_extensions)}).")
-    if not ct and not fn:
-        raise ValueError("Invalid file: missing filename and content type.")
+    raise ValueError("Invalid file: missing filename and content type.")
 
 
 def validate_upload(file):

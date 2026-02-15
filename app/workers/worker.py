@@ -1,5 +1,6 @@
 import asyncio
 import io
+import json
 import os
 import shutil
 import subprocess
@@ -883,7 +884,6 @@ async def worker_loop():
             # ---------- COMPARE PDF (semantic text diff + report + red/green highlights) ----------
             elif job.job_type == JobType.COMPARE_PDF:
                 import difflib
-                import json
 
                 base_dir = os.path.dirname(job.output_path)
                 left_pdf_path = os.path.join(base_dir, "left.pdf")
@@ -1191,6 +1191,388 @@ async def worker_loop():
                         writer.add_page(page)
                     with open(job.output_path, "wb") as f:
                         writer.write(f)
+
+            # ---------- EDIT PDF: PREPARE (extract spans; if none, run OCR then extract) ----------
+            elif job.job_type == JobType.EDIT_PDF_PREPARE:
+                import pymupdf
+                base_dir = os.path.dirname(job.output_path)
+                extract_json_path = os.path.join(base_dir, "extract.json")
+                pdf_to_use = job.input_paths[0]
+
+                def _extract_spans_from_pdf(pdf_path: str) -> tuple[list, int]:
+                    doc = pymupdf.open(pdf_path)
+                    spans_out = []
+                    span_id = 0
+                    for page_index, page in enumerate(doc):
+                        try:
+                            blocks = page.get_text("dict", flags=pymupdf.TEXT_PRESERVE_WHITESPACE).get("blocks") or []
+                        except Exception:
+                            blocks = page.get_text("dict").get("blocks") or []
+                        for block in blocks:
+                            for line in block.get("lines") or []:
+                                for span in line.get("spans") or []:
+                                    text = span.get("text", "")
+                                    if not text.strip():
+                                        continue
+                                    bbox = list(span.get("bbox", (0, 0, 0, 0)))
+                                    font_name = span.get("font", "")
+                                    font_size = float(span.get("size", 12))
+                                    color = int(span.get("color", 0))
+                                    spans_out.append({
+                                        "id": f"p{page_index}_s{span_id}",
+                                        "page_index": page_index,
+                                        "text": text,
+                                        "bbox": bbox,
+                                        "font_name": font_name,
+                                        "font_size": round(font_size, 2),
+                                        "color": color,
+                                    })
+                                    span_id += 1
+                    page_count = len(doc)
+                    doc.close()
+                    return spans_out, page_count
+
+                spans_out, page_count = _extract_spans_from_pdf(pdf_to_use)
+                if not spans_out:
+                    try:
+                        from pdf2image import convert_from_path
+                        import pytesseract
+                        if os.name == "nt":
+                            _tesseract_cmd = (
+                                shutil.which("tesseract")
+                                or os.environ.get("TESSERACT_CMD")
+                                or _find_tesseract_windows()
+                            )
+                            if _tesseract_cmd:
+                                pytesseract.pytesseract.tesseract_cmd = _tesseract_cmd
+                        images = convert_from_path(pdf_to_use, dpi=300)
+                        writer = PdfWriter()
+                        for img in images:
+                            pdf_bytes = pytesseract.image_to_pdf_or_hocr(img, extension="pdf")
+                            buf = io.BytesIO(pdf_bytes)
+                            r = PdfReader(buf)
+                            for p in r.pages:
+                                writer.add_page(p)
+                        ocr_pdf_path = os.path.join(base_dir, "ocr_output.pdf")
+                        _ensure_dir(ocr_pdf_path)
+                        with open(ocr_pdf_path, "wb") as f:
+                            writer.write(f)
+                        pdf_to_use = ocr_pdf_path
+                        spans_out, page_count = _extract_spans_from_pdf(pdf_to_use)
+                    except ImportError as e:
+                        raise ValueError(
+                            "PDF has no text and OCR is not available. "
+                            f"Install: pip install pdf2image pytesseract, and install Tesseract. {e}"
+                        )
+                if pdf_to_use != job.input_paths[0]:
+                    shutil.copy(pdf_to_use, job.output_path)
+                else:
+                    shutil.copy(job.input_paths[0], job.output_path)
+                _ensure_dir(extract_json_path)
+                with open(extract_json_path, "w", encoding="utf-8") as f:
+                    json.dump({"spans": spans_out, "page_count": page_count}, f, indent=2)
+
+            # ---------- EDIT PDF: EXTRACT (text spans with font/size/position) ----------
+            elif job.job_type == JobType.EDIT_PDF_EXTRACT:
+                import pymupdf
+                doc = pymupdf.open(job.input_paths[0])
+                spans_out = []
+                span_id = 0
+                for page_index, page in enumerate(doc):
+                    try:
+                        blocks = page.get_text("dict", flags=pymupdf.TEXT_PRESERVE_WHITESPACE).get("blocks") or []
+                    except Exception:
+                        blocks = page.get_text("dict").get("blocks") or []
+                    for block in blocks:
+                        for line in block.get("lines") or []:
+                            for span in line.get("spans") or []:
+                                text = span.get("text", "")
+                                if not text.strip():
+                                    continue
+                                bbox = list(span.get("bbox", (0, 0, 0, 0)))
+                                font_name = span.get("font", "")
+                                font_size = float(span.get("size", 12))
+                                color = int(span.get("color", 0))
+                                spans_out.append({
+                                    "id": f"p{page_index}_s{span_id}",
+                                    "page_index": page_index,
+                                    "text": text,
+                                    "bbox": bbox,
+                                    "font_name": font_name,
+                                    "font_size": round(font_size, 2),
+                                    "color": color,
+                                })
+                                span_id += 1
+                page_count = len(doc)
+                doc.close()
+                _ensure_dir(job.output_path)
+                with open(job.output_path, "w", encoding="utf-8") as f:
+                    json.dump({"spans": spans_out, "page_count": page_count}, f, indent=2)
+
+            # ---------- EDIT PDF: REPLACE (in-place text with same font/size) ----------
+            elif job.job_type == JobType.EDIT_PDF_REPLACE:
+                import pymupdf
+                replacements = params.get("replacements") or []
+                if not replacements:
+                    raise ValueError("replacements list is required for edit_pdf_replace")
+                doc = pymupdf.open(job.input_paths[0])
+
+                def _span_color_to_rgb(color_val) -> tuple:
+                    """Convert span 'color' to (r,g,b) 0-1. Accepts int (0xRRGGBB) or list/tuple of 3 floats."""
+                    if isinstance(color_val, (list, tuple)) and len(color_val) >= 3:
+                        r, g, b = float(color_val[0]), float(color_val[1]), float(color_val[2])
+                        if r > 1 or g > 1 or b > 1:
+                            r, g, b = r / 255.0, g / 255.0, b / 255.0
+                        return (max(0, min(1, r)), max(0, min(1, g)), max(0, min(1, b)))
+                    color_int = int(color_val) if color_val is not None else 0
+                    r = ((color_int >> 16) & 0xFF) / 255.0
+                    g = ((color_int >> 8) & 0xFF) / 255.0
+                    b = (color_int & 0xFF) / 255.0
+                    return (r, g, b)
+
+                def _map_font_name(pdf_font_name: str) -> str:
+                    # Return PyMuPDF Base 14 font names so replacement text matches original font family.
+                    name = (pdf_font_name or "").lower()
+                    if "times" in name or "cambria" in name or "georgia" in name or "palatino" in name or "serif" in name:
+                        if "bold" in name and "italic" in name:
+                            return "Times-BoldItalic"
+                        if "bold" in name:
+                            return "Times-Bold"
+                        if "italic" in name or "oblique" in name:
+                            return "Times-Italic"
+                        return "Times-Roman"
+                    if "courier" in name or any(x in name for x in (
+                        "mono", "consolas", "jetbrains", "menlo", "source code", "liberation mono",
+                        "dejavu sans mono", "droid sans mono", "fira code", "cascadia", "ubuntu mono", "inconsolata",
+                    )):
+                        if "bold" in name and "italic" in name:
+                            return "Courier-BoldOblique"
+                        if "bold" in name:
+                            return "Courier-Bold"
+                        if "italic" in name or "oblique" in name:
+                            return "Courier-Oblique"
+                        return "Courier"
+                    if "arial" in name or "helvetica" in name or "calibri" in name or "verdana" in name or "sans" in name:
+                        if "bold" in name and ("italic" in name or "oblique" in name):
+                            return "Helvetica-BoldOblique"
+                        if "bold" in name:
+                            return "Helvetica-Bold"
+                        if "italic" in name or "oblique" in name:
+                            return "Helvetica-Oblique"
+                        return "Helvetica"
+                    return "Helvetica"
+
+                def _find_span_at_rect(page, rect):
+                    try:
+                        blocks = page.get_text("dict").get("blocks") or []
+                    except Exception:
+                        return None
+                    best_span = None
+                    best_area = 0
+                    r = pymupdf.Rect(rect)
+                    for block in blocks:
+                        for line in block.get("lines") or []:
+                            for span in line.get("spans") or []:
+                                sb = span.get("bbox")
+                                if not sb:
+                                    continue
+                                sr = pymupdf.Rect(sb)
+                                inter = r & sr
+                                if inter.is_empty:
+                                    continue
+                                area = inter.get_area()
+                                if area > best_area:
+                                    best_area = area
+                                    best_span = span
+                    return best_span
+
+                def _pixel_to_rgb(p):
+                    if isinstance(p, (tuple, list)) and len(p) >= 3:
+                        return (p[0] / 255.0, p[1] / 255.0, p[2] / 255.0)
+                    if isinstance(p, int):
+                        return ((p >> 16) & 0xFF) / 255.0, ((p >> 8) & 0xFF) / 255.0, (p & 0xFF) / 255.0
+                    return None
+
+                def _luminance(rgb):
+                    r, g, b = rgb
+                    return 0.299 * r + 0.587 * g + 0.114 * b
+
+                def _sample_page_background(page):
+                    try:
+                        page_rect = page.rect
+                        clip = pymupdf.Rect(0, 0, min(50, page_rect.width * 0.1), min(50, page_rect.height * 0.1)) & page_rect
+                        if clip.is_empty or clip.get_area() < 1:
+                            return (0.1, 0.1, 0.1)
+                        pix = page.get_pixmap(clip=clip, matrix=pymupdf.Matrix(1, 1), alpha=False)
+                        w, h = pix.width, pix.height
+                        if w < 1 or h < 1:
+                            return (0.1, 0.1, 0.1)
+                        rgb_list = []
+                        for py in range(h):
+                            for px in range(w):
+                                t = _pixel_to_rgb(pix.pixel(px, py))
+                                if t:
+                                    rgb_list.append(t)
+                        if not rgb_list:
+                            return (0.1, 0.1, 0.1)
+                        return (
+                            sum(x[0] for x in rgb_list) / len(rgb_list),
+                            sum(x[1] for x in rgb_list) / len(rgb_list),
+                            sum(x[2] for x in rgb_list) / len(rgb_list),
+                        )
+                    except Exception:
+                        return (0.1, 0.1, 0.1)
+
+                def _sample_background_color(page, rect):
+                    try:
+                        r = pymupdf.Rect(rect)
+                        if r.is_empty or r.get_area() < 1:
+                            return (1, 1, 1)
+                        page_rect = page.rect
+                        expand = 8.0
+                        clip = pymupdf.Rect(
+                            max(0, r.x0 - expand), max(0, r.y0 - expand),
+                            min(page_rect.x1, r.x1 + expand), min(page_rect.y1, r.y1 + expand),
+                        ) & page_rect
+                        if clip.is_empty or clip.get_area() < 4:
+                            return (1, 1, 1)
+                        pix = page.get_pixmap(clip=clip, matrix=pymupdf.Matrix(1, 1), alpha=False)
+                        w, h = pix.width, pix.height
+                        if w < 3 or h < 3:
+                            return (1, 1, 1)
+                        rgb_list = []
+                        for (px, py) in [
+                            (0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1),
+                            (w // 2, 0), (w // 2, h - 1), (0, h // 2), (w - 1, h // 2),
+                        ]:
+                            t = _pixel_to_rgb(pix.pixel(px, py))
+                            if t:
+                                rgb_list.append(t)
+                        if not rgb_list:
+                            return (1, 1, 1)
+                        fill = (
+                            sum(x[0] for x in rgb_list) / len(rgb_list),
+                            sum(x[1] for x in rgb_list) / len(rgb_list),
+                            sum(x[2] for x in rgb_list) / len(rgb_list),
+                        )
+                        page_bg = _sample_page_background(page)
+                        page_lum = _luminance(page_bg)
+                        fill_lum = _luminance(fill)
+                        if page_lum < 0.4 and fill_lum > 0.6:
+                            return page_bg
+                        if page_lum > 0.6 and fill_lum < 0.15:
+                            return page_bg
+                        return fill
+                    except Exception:
+                        return (1, 1, 1)
+
+                def _sample_text_color_from_page(page, rect, background_rgb):
+                    try:
+                        r = pymupdf.Rect(rect)
+                        if r.is_empty or r.get_area() < 1:
+                            return None
+                        scale = 3
+                        pix = page.get_pixmap(clip=r, matrix=pymupdf.Matrix(scale, scale), alpha=False)
+                        w, h = pix.width, pix.height
+                        if w < 1 or h < 1:
+                            return None
+                        bg_lum = _luminance(background_rgb)
+                        fg_list = []
+                        step = max(1, (w * h) // 200)
+                        for i in range(0, w * h, step):
+                            py, px = divmod(i, w)
+                            if py >= h:
+                                break
+                            t = _pixel_to_rgb(pix.pixel(px, py))
+                            if not t:
+                                continue
+                            if abs(_luminance(t) - bg_lum) > 0.06:
+                                fg_list.append(t)
+                        if not fg_list:
+                            best = None
+                            best_lum = -1
+                            for py in range(h):
+                                for px in range(w):
+                                    t = _pixel_to_rgb(pix.pixel(px, py))
+                                    if t and _luminance(t) > best_lum:
+                                        best_lum = _luminance(t)
+                                        best = t
+                            return best
+                        return (
+                            sum(x[0] for x in fg_list) / len(fg_list),
+                            sum(x[1] for x in fg_list) / len(fg_list),
+                            sum(x[2] for x in fg_list) / len(fg_list),
+                        )
+                    except Exception:
+                        return None
+
+                for page in doc:
+                    for repl in replacements:
+                        old_text = (repl.get("old_text") or "").strip()
+                        new_text = repl.get("new_text") or ""
+                        if not old_text:
+                            continue
+                        rects = page.search_for(old_text, quads=False)
+                        repl_page_index = repl.get("page_index")
+                        repl_bbox = repl.get("bbox")
+                        if repl_page_index is not None and repl_bbox is not None and len(repl_bbox) == 4:
+                            if page.number != repl_page_index:
+                                continue
+                            target = pymupdf.Rect(repl_bbox[0], repl_bbox[1], repl_bbox[2], repl_bbox[3])
+                            best_rect = None
+                            best_area = 0.0
+                            for r in rects:
+                                inter = r & target
+                                if not inter.is_empty and inter.get_area() > best_area:
+                                    best_area = inter.get_area()
+                                    best_rect = r
+                            rects = [best_rect] if best_rect is not None else []
+                        for rect in rects:
+                            span = _find_span_at_rect(page, rect)
+                            sample_rect = rect
+                            if span:
+                                font_size = max(6.0, float(span.get("size", 11)))
+                                font_name = _map_font_name(span.get("font", ""))
+                                raw_color = span.get("color", 0)
+                                color = _span_color_to_rgb(raw_color)
+                                color_int = 0 if _luminance(color) < 0.05 else 1
+                                if span.get("bbox"):
+                                    sample_rect = pymupdf.Rect(span.get("bbox"))
+                            else:
+                                font_size = 11.0
+                                font_name = "Helvetica"
+                                color = (0, 0, 0)
+                                color_int = 0
+                            fill_color = _sample_background_color(page, rect)
+                            sampled = _sample_text_color_from_page(page, sample_rect, fill_color)
+                            if color_int != 0 and _luminance(color) >= 0.05:
+                                pass
+                            elif sampled is not None:
+                                color = sampled
+                            elif _luminance(fill_color) < 0.5 and _luminance(color) < 0.4:
+                                color = (1, 1, 1)
+                            fill_lum = _luminance(fill_color)
+                            if sampled is not None and _luminance(color) < 0.15 and fill_lum < 0.7:
+                                color = sampled
+                            text_lum = _luminance(color)
+                            if abs(text_lum - fill_lum) < 0.2:
+                                color = (1, 1, 1) if fill_lum < 0.5 else (0, 0, 0)
+                            if new_text and not rect.is_empty and rect.get_area() >= 1:
+                                page.add_redact_annot(
+                                    rect,
+                                    text=new_text,
+                                    fontname=font_name,
+                                    fontsize=font_size,
+                                    align=pymupdf.TEXT_ALIGN_LEFT,
+                                    fill=fill_color,
+                                    text_color=color,
+                                    cross_out=False,
+                                )
+                            else:
+                                page.add_redact_annot(rect, fill=fill_color, cross_out=False)
+                    page.apply_redactions()
+                doc.save(job.output_path)
+                doc.close()
 
             else:
                 raise ValueError(f"Unsupported job type: {job.job_type}")

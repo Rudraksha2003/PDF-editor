@@ -58,6 +58,7 @@
         <div class="nav-category" data-category="Edit">
           <button type="button" class="nav-category-btn" aria-expanded="true">Edit</button>
           <div class="nav-tools">
+            <button type="button" class="nav-tool" id="navToolEditPdf" data-tool="edit-pdf" onclick="typeof window.openEditPdfWorkspace==='function'&&window.openEditPdfWorkspace();"><span class="nav-tool-icon">✎</span><span class="nav-tool-name">Edit PDF</span></button>
             <button type="button" class="nav-tool" data-tool="rotate"><span class="nav-tool-icon">↻</span><span class="nav-tool-name">Rotate</span></button>
             <button type="button" class="nav-tool" data-tool="crop"><span class="nav-tool-icon">▭</span><span class="nav-tool-name">Crop</span></button>
             <button type="button" class="nav-tool" data-tool="page-numbers"><span class="nav-tool-icon">#</span><span class="nav-tool-name">Page numbers</span></button>
@@ -176,6 +177,7 @@
             <div class="job-status" id="jobStatus"></div>
             <div class="job-panel-actions">
               <a class="btn btn-success hidden" id="downloadBtn" href="#" download>Download result</a>
+              <button type="button" class="btn btn-primary hidden" id="openEditPdfViewBtn">Edit in browser</button>
               <button type="button" class="btn btn-primary hidden" id="openCompareViewBtn">Open compare view</button>
               <button type="button" class="btn btn-secondary hidden" id="uploadNewFileBtn">Upload new file</button>
             </div>
@@ -227,6 +229,27 @@
           </div>
           <iframe class="preview-view-iframe hidden" id="previewViewIframe" title="Preview file"></iframe>
         </section>
+
+        <section class="edit-pdf-view hidden" id="editPdfView" aria-hidden="true">
+          <div class="edit-pdf-view-header">
+            <button type="button" class="back-btn" id="editPdfViewBackBtn" aria-label="Back">← Back</button>
+            <h2 class="edit-pdf-view-title">Edit PDF</h2>
+            <div class="edit-pdf-view-actions">
+              <span class="edit-pdf-apply-status" id="editPdfApplyStatus" aria-live="polite"></span>
+              <button type="button" class="btn btn-primary" id="editPdfApplyBtn">Apply edits</button>
+            </div>
+          </div>
+          <div class="edit-pdf-view-body">
+            <div class="edit-pdf-preview-wrap">
+              <iframe class="edit-pdf-iframe" id="editPdfIframe" title="PDF preview"></iframe>
+            </div>
+            <aside class="edit-pdf-spans-panel">
+              <h3 class="edit-pdf-spans-title">Text blocks — edit below</h3>
+              <p class="edit-pdf-spans-hint">Change any text and click “Apply edits” to get the updated PDF.</p>
+              <div class="edit-pdf-spans-list" id="editPdfSpansList"></div>
+            </aside>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -234,6 +257,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js?v=edit-pdf"></script>
 </body>
 </html>

@@ -28,6 +28,7 @@ from app.api.routes import (
     flatten,
     remove_blanks,
     extract_images,
+    edit_pdf,
     protect,
     unlock,
     redact,
@@ -89,6 +90,7 @@ app.include_router(stamp.router, tags=["Edit"])
 app.include_router(flatten.router, tags=["Edit"])
 app.include_router(remove_blanks.router, tags=["Edit"])
 app.include_router(extract_images.router, tags=["Edit"])
+app.include_router(edit_pdf.router, tags=["Edit"])
 app.include_router(protect.router, tags=["Security"])
 app.include_router(unlock.router, tags=["Security"])
 app.include_router(redact.router, tags=["Security"])

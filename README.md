@@ -32,7 +32,7 @@ Open **http://127.0.0.1:8000** for the UI, or **http://127.0.0.1:8000/docs** for
 | **Organize** | Merge, split, split by range, delete pages, extract pages, reorder |
 | **Optimize** | Compress, repair, **OCR** (make scanned PDFs searchable) |
 | **Convert** | Images → PDF, PDF → images, PDF → PDF/A, PDF → text, HTML → PDF, Office → PDF, PDF → Office |
-| **Edit** | Rotate, crop, page numbers, watermark, stamp, flatten, remove blank pages, extract images |
+| **Edit** | Rotate, crop, page numbers, watermark, stamp, flatten, remove blank pages, extract images, **edit text** (extract spans, replace in place with same font/size) |
 | **Security** | Protect (password), unlock, redact, sign, sanitize, compare |
 
 Most features work with only Python and the packages in `requirements.txt`. A few tools need extra system software (see below).

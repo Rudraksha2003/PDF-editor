@@ -574,6 +574,18 @@ const TOOLS = {
       return API.postFormData('/validate-signature', fd);
     },
   },
+  'edit-pdf': {
+    title: 'Edit PDF',
+    multi: false,
+    accept: '.pdf,application/pdf',
+    dropText: 'Drop a PDF here or click to browse',
+    dropHint: 'We’ll detect text (or run OCR if needed). Then edit in the browser and download.',
+    submit: async (files) => {
+      const fd = new FormData();
+      fd.append('file', files[0]);
+      return API.postFormData('/edit-pdf/prepare', fd);
+    },
+  },
 };
 
 // ----- DOM -----
@@ -623,6 +635,12 @@ const compareScrollSync = document.getElementById('compareScrollSync');
 const compareZoomIn = document.getElementById('compareZoomIn');
 const compareZoomOut = document.getElementById('compareZoomOut');
 const compareZoomLabel = document.getElementById('compareZoomLabel');
+const editPdfView = document.getElementById('editPdfView');
+const editPdfViewBackBtn = document.getElementById('editPdfViewBackBtn');
+const editPdfIframe = document.getElementById('editPdfIframe');
+const editPdfSpansList = document.getElementById('editPdfSpansList');
+const editPdfApplyBtn = document.getElementById('editPdfApplyBtn');
+const openEditPdfViewBtn = document.getElementById('openEditPdfViewBtn');
 
 const THEME_STORAGE_KEY = 'pdf-editor-theme';
 const VIEW_STORAGE_KEY = 'pdf-editor-view';
@@ -661,13 +679,27 @@ function getStoredView() {
 }
 
 function setView(view) {
-  if (view !== 'tools' && view !== 'reader' && view !== 'preview' && view !== 'compare') view = 'tools';
+  if (view !== 'tools' && view !== 'reader' && view !== 'preview' && view !== 'compare' && view !== 'edit-pdf') view = 'tools';
   if (appRoot) appRoot.setAttribute('data-view', view);
   document.querySelectorAll('.view-tab').forEach((tab) => {
     const isActive = tab.dataset.view === view;
     tab.classList.toggle('active', isActive);
     tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
+  if (view === 'edit-pdf') {
+    editPdfView?.classList.remove('hidden');
+    editPdfView?.setAttribute('aria-hidden', 'false');
+    homeView?.classList.add('hidden');
+    workspace?.classList.add('hidden');
+    workspace?.setAttribute('aria-hidden', 'true');
+    previewView?.classList.add('hidden');
+    previewView?.setAttribute('aria-hidden', 'true');
+    compareView?.classList.add('hidden');
+    compareView?.setAttribute('aria-hidden', 'true');
+  } else {
+    editPdfView?.classList.add('hidden');
+    editPdfView?.setAttribute('aria-hidden', 'true');
+  }
   if (view === 'compare') {
     compareView?.classList.remove('hidden');
     compareView?.setAttribute('aria-hidden', 'false');
@@ -676,7 +708,7 @@ function setView(view) {
     workspace?.setAttribute('aria-hidden', 'true');
     previewView?.classList.add('hidden');
     previewView?.setAttribute('aria-hidden', 'true');
-  } else {
+  } else if (view !== 'edit-pdf') {
     compareView?.classList.add('hidden');
     compareView?.setAttribute('aria-hidden', 'true');
   }
@@ -720,6 +752,8 @@ let selectedFiles = [];
 let addMoreMode = false;
 let lastPreviewJobId = null;
 let lastCompareJobId = null;
+let lastEditPdfJobId = null;
+let editPdfSpansData = null;
 
 // ----- Toasts -----
 function toast(message, isError = false) {
@@ -1279,6 +1313,7 @@ function hideJobPanel() {
   downloadBtn.href = '#';
   if (uploadNewFileBtn) uploadNewFileBtn.classList.add('hidden');
   if (openCompareViewBtn) openCompareViewBtn.classList.add('hidden');
+  if (openEditPdfViewBtn) openEditPdfViewBtn.classList.add('hidden');
 }
 
 function showJobPanel(statusText, state = 'pending', _jobId = null) {
@@ -1305,11 +1340,15 @@ function pollJob(jobId) {
         document.querySelector('.view-tab[data-view="preview"]')?.classList.add('has-preview');
         if (job.job_type === 'compare_pdf') {
           lastCompareJobId = jobId;
-          if (openCompareViewBtn) {
-            openCompareViewBtn.classList.remove('hidden');
-          }
-        } else if (openCompareViewBtn) {
-          openCompareViewBtn.classList.add('hidden');
+          if (openCompareViewBtn) openCompareViewBtn.classList.remove('hidden');
+          if (openEditPdfViewBtn) openEditPdfViewBtn.classList.add('hidden');
+        } else if (job.job_type === 'edit_pdf_prepare') {
+          lastEditPdfJobId = jobId;
+          if (openEditPdfViewBtn) openEditPdfViewBtn.classList.remove('hidden');
+          if (openCompareViewBtn) openCompareViewBtn.classList.add('hidden');
+        } else {
+          if (openCompareViewBtn) openCompareViewBtn.classList.add('hidden');
+          if (openEditPdfViewBtn) openEditPdfViewBtn.classList.add('hidden');
         }
         if (job.params?.redaction_warning) {
           toast(job.params.redaction_warning, false);
@@ -1320,6 +1359,7 @@ function pollJob(jobId) {
         toast(job.error || 'Job failed', true);
         submitBtn.disabled = false;
         if (openCompareViewBtn) openCompareViewBtn.classList.add('hidden');
+        if (openEditPdfViewBtn) openEditPdfViewBtn.classList.add('hidden');
       }
     } catch (e) {
       clearInterval(interval);
@@ -1509,10 +1549,156 @@ async function openCompareView(jobId) {
   }
 }
 
+// ----- Edit PDF view -----
+const editPdfApplyStatus = document.getElementById('editPdfApplyStatus');
+
+async function openEditPdfView(jobId) {
+  if (!jobId || !editPdfView || !editPdfSpansList || !editPdfIframe) return;
+  editPdfSpansList.innerHTML = 'Loading…';
+  editPdfIframe.src = '';
+  editPdfSpansData = null;
+  if (editPdfApplyStatus) editPdfApplyStatus.textContent = '';
+
+  try {
+    setView('edit-pdf');
+    if (appRoot) appRoot.classList.add('sidebar-collapsed');
+    const base = API.base || '';
+    editPdfIframe.src = `${base}/preview/${jobId}#view=Fit`;
+    const extract = await fetch(`${base}/edit-pdf/jobs/${jobId}/extract`).then((r) => {
+      if (!r.ok) throw new Error('Could not load text blocks');
+      return r.json();
+    });
+    const spans = extract.spans || [];
+    editPdfSpansData = { jobId, spans };
+
+    editPdfSpansList.innerHTML = '';
+    if (spans.length === 0) {
+      editPdfSpansList.innerHTML = '<p class="edit-pdf-spans-hint">No text blocks found. You can still download the PDF above.</p>';
+    } else {
+      spans.forEach((s) => {
+        const item = document.createElement('div');
+        item.className = 'edit-pdf-span-item';
+        item.dataset.spanId = s.id;
+        const label = document.createElement('label');
+        label.textContent = `Page ${(s.page_index || 0) + 1}`;
+        const input = document.createElement('textarea');
+        input.rows = 2;
+        input.value = s.text || '';
+        input.setAttribute('data-original', s.text || '');
+        item.appendChild(label);
+        item.appendChild(input);
+        editPdfSpansList.appendChild(item);
+      });
+    }
+  } catch (e) {
+    toast(e.message || 'Failed to open editor', true);
+    editPdfSpansList.innerHTML = '<p class="edit-pdf-spans-hint">Could not load text blocks.</p>';
+  }
+}
+
+async function applyEditPdfEdits() {
+  if (!editPdfSpansData || !editPdfApplyBtn || !editPdfApplyStatus) return;
+  const { jobId, spans } = editPdfSpansData;
+  const replacements = [];
+  spans.forEach((s) => {
+    const input = editPdfSpansList?.querySelector(`[data-span-id="${s.id}"] textarea`);
+    if (!input) return;
+    const newText = (input.value || '').trim();
+    const oldText = (s.text || '').trim();
+    if (oldText && newText !== oldText) {
+      const item = { old_text: oldText, new_text: newText };
+      if (s.page_index !== undefined && s.bbox && s.bbox.length === 4) {
+        item.page_index = s.page_index;
+        item.bbox = s.bbox;
+      }
+      replacements.push(item);
+    }
+  });
+  if (replacements.length === 0) {
+    toast('No changes to apply. Edit some text first, or download the PDF as-is.', false);
+    return;
+  }
+  editPdfApplyBtn.disabled = true;
+  editPdfApplyStatus.textContent = 'Applying edits…';
+  try {
+    const fd = new FormData();
+    fd.append('prepare_job_id', jobId);
+    fd.append('replacements', JSON.stringify(replacements));
+    const res = await fetch(`${API.base || ''}/edit-pdf/apply-edits`, { method: 'POST', body: fd });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || res.statusText);
+    }
+    const { job_id: newJobId } = await res.json();
+    const interval = setInterval(async () => {
+      try {
+        const job = await API.get(`/jobs/${newJobId}`);
+        if (job.status === 'completed') {
+          clearInterval(interval);
+          editPdfApplyStatus.innerHTML = 'Download ready: <a href="' + (API.base || '') + '/download/' + newJobId + '" download class="btn edit-pdf-download-btn">Download PDF</a>';
+          editPdfApplyBtn.disabled = false;
+          lastPreviewJobId = newJobId;
+          if (editPdfIframe) {
+            editPdfIframe.src = (API.base || '') + '/preview/' + newJobId + '#view=Fit';
+          }
+          document.querySelector('.view-tab[data-view="preview"]')?.classList.add('has-preview');
+        } else if (job.status === 'failed') {
+          clearInterval(interval);
+          editPdfApplyStatus.textContent = 'Failed: ' + (job.error || 'Unknown error');
+          editPdfApplyBtn.disabled = false;
+          toast(job.error || 'Apply failed', true);
+        }
+      } catch (e) {
+        clearInterval(interval);
+        editPdfApplyStatus.textContent = 'Error';
+        editPdfApplyBtn.disabled = false;
+        toast(e.message, true);
+      }
+    }, 800);
+  } catch (e) {
+    editPdfApplyStatus.textContent = '';
+    editPdfApplyBtn.disabled = false;
+    toast(e.message || 'Failed to apply edits', true);
+  }
+}
+
 // ----- Events -----
-document.querySelectorAll('.nav-tool').forEach((btn) => {
-  btn.addEventListener('click', () => showWorkspace(btn.dataset.tool));
-});
+function handleNavToolClick(toolKey) {
+  if (!toolKey || !TOOLS[toolKey]) return;
+  showWorkspace(toolKey);
+  if (sidebar && sidebar.classList.contains('sidebar-open')) {
+    sidebar.classList.remove('sidebar-open');
+    if (sidebarToggle) {
+      sidebarToggle.setAttribute('aria-expanded', 'false');
+      sidebarToggle.setAttribute('aria-label', 'Open tools menu');
+    }
+  }
+}
+
+window.openEditPdfWorkspace = function () {
+  handleNavToolClick('edit-pdf');
+};
+
+const sidebarNav = document.querySelector('.sidebar-nav');
+if (sidebarNav) {
+  sidebarNav.addEventListener('click', (e) => {
+    const btn = e.target.closest('.nav-tool');
+    if (!btn || btn.classList.contains('hidden-by-search')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const toolKey = btn.getAttribute('data-tool') || (btn.dataset && btn.dataset.tool);
+    handleNavToolClick(toolKey);
+  });
+}
+
+var navToolEditPdf = document.getElementById('navToolEditPdf');
+if (navToolEditPdf) {
+  navToolEditPdf.addEventListener('click', function (e) {
+    e.stopPropagation();
+    handleNavToolClick('edit-pdf');
+  });
+}
+
 const optFlattenOnlyForms = document.getElementById('opt-flatten_only_forms');
 if (optFlattenOnlyForms) optFlattenOnlyForms.addEventListener('change', updateSubmitButton);
 
@@ -1558,11 +1744,17 @@ if (homeCard) {
   });
 }
 
-if (sidebarToggle && sidebar) {
+if (sidebarToggle && sidebar && appRoot) {
   sidebarToggle.addEventListener('click', () => {
-    const open = sidebar.classList.toggle('sidebar-open');
-    sidebarToggle.setAttribute('aria-expanded', open);
-    sidebarToggle.setAttribute('aria-label', open ? 'Close tools menu' : 'Open tools menu');
+    if (window.innerWidth > 768) {
+      const collapsed = appRoot.classList.toggle('sidebar-collapsed');
+      sidebarToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      sidebarToggle.setAttribute('aria-label', collapsed ? 'Show menu' : 'Hide menu');
+    } else {
+      const open = sidebar.classList.toggle('sidebar-open');
+      sidebarToggle.setAttribute('aria-expanded', open);
+      sidebarToggle.setAttribute('aria-label', open ? 'Close tools menu' : 'Open tools menu');
+    }
   });
   document.addEventListener('click', (e) => {
     if (sidebar.classList.contains('sidebar-open') && !sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
@@ -1575,7 +1767,10 @@ if (sidebarToggle && sidebar) {
 submitBtn.addEventListener('click', submitJob);
 if (uploadNewFileBtn) uploadNewFileBtn.addEventListener('click', clearFiles);
 if (openCompareViewBtn) openCompareViewBtn.addEventListener('click', () => { if (lastCompareJobId) openCompareView(lastCompareJobId); });
+if (openEditPdfViewBtn) openEditPdfViewBtn.addEventListener('click', () => { if (lastEditPdfJobId) openEditPdfView(lastEditPdfJobId); });
 if (compareViewBackBtn) compareViewBackBtn.addEventListener('click', () => { setView('tools'); compareRerender = null; });
+if (editPdfViewBackBtn) editPdfViewBackBtn.addEventListener('click', () => { setView('tools'); editPdfSpansData = null; if (appRoot) appRoot.classList.remove('sidebar-collapsed'); });
+if (editPdfApplyBtn) editPdfApplyBtn.addEventListener('click', applyEditPdfEdits);
 if (compareZoomIn) {
   compareZoomIn.addEventListener('click', () => {
     compareZoomLevel = Math.min(3, compareZoomLevel + 0.25);
