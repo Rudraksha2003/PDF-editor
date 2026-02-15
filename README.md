@@ -1,29 +1,67 @@
 # PDF Editor
 
-## OCR PDF
+A web app to edit, convert, and manage PDFs. Merge, split, rotate, compress, protect, convert to/from Office and images, add watermarks, run OCR, and more — all through a simple API and UI.
 
-The **OCR PDF** tool needs the **Tesseract** engine installed on your system (the Python package `pytesseract` only calls the Tesseract executable).
+---
 
-### Windows
+## Quick start
 
-1. **Install Tesseract**
-   - Download the installer: [tesseract-ocr-w64-setup](https://github.com/UB-Mannheim/tesseract/wiki) (or search "tesseract windows" for the official installers).
-   - Run the installer and complete the setup.
-   - Default install path: `C:\Program Files\Tesseract-OCR\tesseract.exe`.
+```bash
+# Clone and enter the project
+cd pdf-editor
 
-2. **Optional: add to PATH**
-   - If you don’t add Tesseract to PATH, this app will still try to use it from the default install path above.
+# Create a virtual environment and install dependencies
+python -m venv .venv
+.venv\Scripts\activate   # Windows
+# source .venv/bin/activate   # macOS/Linux
 
-3. **Optional: custom path**
-   - Set the environment variable `TESSERACT_CMD` to the full path of `tesseract.exe` if you installed it somewhere else.
+pip install -r requirements.txt
 
-### macOS
+# Run the app
+uvicorn app.main:app --reload
+```
+
+Open **http://127.0.0.1:8000** for the UI, or **http://127.0.0.1:8000/docs** for the API.
+
+---
+
+## What you can do
+
+| Category | Tools |
+|----------|--------|
+| **Organize** | Merge, split, split by range, delete pages, extract pages, reorder |
+| **Optimize** | Compress, repair, **OCR** (make scanned PDFs searchable) |
+| **Convert** | Images → PDF, PDF → images, PDF → PDF/A, PDF → text, HTML → PDF, Office → PDF, PDF → Office |
+| **Edit** | Rotate, crop, page numbers, watermark, stamp, flatten, remove blank pages, extract images |
+| **Security** | Protect (password), unlock, redact, sign, sanitize, compare |
+
+Most features work with only Python and the packages in `requirements.txt`. A few tools need extra system software (see below).
+
+---
+
+## Optional: system dependencies
+
+These are **only needed for specific tools**. The app runs without them; those tools will fail until you install the right dependency.
+
+### OCR PDF (make scanned PDFs searchable)
+
+**OCR** = *Optical Character Recognition*: it reads text from scanned PDFs (images of pages) so you can search and select the text. This tool needs **Tesseract** on your system; the app calls the Tesseract executable.
+
+#### Windows
+
+1. **Install Tesseract**  
+   Download: [tesseract-ocr-w64-setup](https://github.com/UB-Mannheim/tesseract/wiki) (or search “tesseract windows”).  
+   Default path: `C:\Program Files\Tesseract-OCR\tesseract.exe`.
+
+2. **Optional:** Add Tesseract to PATH, or set `TESSERACT_CMD` to the full path of `tesseract.exe`.
+
+#### macOS
 
 ```bash
 brew install tesseract
 ```
 
-### Linux
+#### Linux
 
 ```bash
 # Debian/Ubuntu
@@ -35,67 +73,48 @@ sudo dnf install tesseract
 
 ---
 
-## HTML → PDF (WeasyPrint)
+### HTML → PDF (WeasyPrint)
 
-The **HTML → PDF** tool uses **WeasyPrint**, which needs **Pango** (and its DLLs) on Windows. If you see an error like `cannot load library '...libgobject-2.0-0.dll': error 0x7e`, Pango is missing or the wrong DLL path is used.
+The **HTML → PDF** tool uses **WeasyPrint**, which needs **Pango** (and its DLLs on Windows). If you see `cannot load library '...libgobject-2.0-0.dll'`, Pango is missing or not on the right path.
 
-### Windows
+#### Windows
 
-1. **Install MSYS2**  
-   Download and install from [msys2.org](https://www.msys2.org/) (keep default options).
-
-2. **Install Pango**  
-   Open **MSYS2** (the “MSYS2 MSYS” shortcut), then run:
-   ```bash
-   pacman -S mingw-w64-x86_64-pango
-   ```
-   Accept the dependencies, then close MSYS2.
-
-3. **Tell WeasyPrint where the DLLs are**  
-   Add this folder to your **PATH** (see “What to put in PATH” above):
-   ```text
-   C:\msys64\mingw64\bin
-   ```
-   If you installed MSYS2 somewhere else, use that path plus `\mingw64\bin`.
-
-   **Or** set this environment variable (no restart of the app needed if you set it in the same terminal before running):
+1. Install [MSYS2](https://www.msys2.org/).
+2. In MSYS2: `pacman -S mingw-w64-x86_64-pango`
+3. Add `C:\msys64\mingw64\bin` to PATH, or set:
    ```text
    WEASYPRINT_DLL_DIRECTORIES=C:\msys64\mingw64\bin
    ```
-   This app will also use that folder automatically if it exists and the variable is not already set.
 
-### macOS / Linux
+#### macOS / Linux
 
-- **macOS:** `brew install weasyprint` (or install Pango and then `pip install weasyprint`).  
-- **Linux:** Install the `weasyprint` package or the `pango` (and related) dev/runtime packages, then `pip install weasyprint`.
+- **macOS:** `brew install weasyprint`
+- **Linux:** Install `weasyprint` or Pango + related packages, then `pip install weasyprint`
 
-More: [WeasyPrint first steps](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation) and [troubleshooting](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#troubleshooting).
-
----
-
-## Office → PDF / PDF → Office (LibreOffice)
-
-The **Office → PDF** and **PDF → Office** tools use **LibreOffice** in headless mode. If you see *"The system cannot find the file specified"* (WinError 2), LibreOffice is not installed or not on your PATH. If you see *"Could not find platform independent libraries"* or *"no export filter"*, the app now runs LibreOffice with its install directory as the working directory so it can find its components — ensure LibreOffice is installed in the default location or set `LIBREOFFICE_CMD` to the full path to `soffice.exe`.
-
-### Windows
-
-1. **Install LibreOffice**  
-   Download and install from [libreoffice.org](https://www.libreoffice.org/download/download/). Default install path: `C:\Program Files\LibreOffice\program\soffice.exe`.
-
-2. **No PATH needed**  
-   This app will try to find `soffice.exe` in the default install folder. You only need to add it to PATH if you installed LibreOffice somewhere else.
-
-3. **Custom install path**  
-   Set the environment variable `LIBREOFFICE_CMD` to the full path of `soffice.exe` (e.g. `D:\LibreOffice\program\soffice.exe`).
-
-### macOS / Linux
-
-- **macOS:** `brew install libreoffice`  
-- **Linux:** Install the `libreoffice` (or `libreoffice-core`) package from your distribution.
+More: [WeasyPrint first steps](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation).
 
 ---
 
-**PDF to image (for OCR)** uses **Poppler**. On Windows, if you get errors about `pdftoppm`/poppler, install it from [poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases) and add the `bin` folder to your PATH.
+### Office → PDF / PDF → Office (LibreOffice)
+
+**Office → PDF** and **PDF → Office** use **LibreOffice** in headless mode. If you see *"The system cannot find the file specified"*, install LibreOffice.
+
+#### Windows
+
+1. Install from [libreoffice.org](https://www.libreoffice.org/download/download/).  
+   Default: `C:\Program Files\LibreOffice\program\soffice.exe`.
+2. Optional: set `LIBREOFFICE_CMD` to the path of `soffice.exe` if you use a different install path.
+
+#### macOS / Linux
+
+- **macOS:** `brew install libreoffice`
+- **Linux:** Install the `libreoffice` (or `libreoffice-core`) package.
+
+---
+
+### PDF to image (used by OCR)
+
+Converting PDF pages to images (e.g. for OCR) uses **Poppler**. On Windows, if you get errors about `pdftoppm` or poppler, install [poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases) and add its `bin` folder to PATH.
 
 ---
 
